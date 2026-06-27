@@ -14,10 +14,12 @@ out/
 *.db-journal
 apps/api/prisma/dev.db*
 
-# Env
+# Env (secrets) — on garde toutefois les .env de config du projet (sans secret)
 .env
 .env.local
 .env.*.local
+!apps/api/.env
+!apps/web/.env.local
 
 # Logs
 *.log
