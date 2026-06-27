@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnp.*
+
+# Builds
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Prisma / DB
+*.db
+*.db-journal
+apps/api/prisma/dev.db*
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Exports générés
+exports/
+*.xlsx
+*.pdf
+!docs/**/*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

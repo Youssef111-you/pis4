@@ -1,0 +1,110 @@
+// Schéma de données — EnergieSI
+// Modèle relationnel : Machines (1‑N) Tests (1‑N) Measurements
+//                      Scenarios (1‑N) Tests (1‑1) Results
+// SQLite ne supporte pas les ENUM natifs : les champs "type" sont des String
+// dont les valeurs proviennent des énumérations de @energie-si/shared.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Équipement informatique étudié (fixe, portable, hôte, VM)
+model Machine {
+  id       Int     @id @default(autoincrement())
+  name     String
+  type     String // MachineType : DESKTOP | LAPTOP | HOST | VM
+  cpuModel String?
+  cpuCores Int?
+  ramGo    Float?
+  os       String?
+  pIdleW   Float   @default(15) // puissance de repos (W) — modèle d'estimation
+  pMaxW    Float   @default(65) // puissance maximale (W) — modèle d'estimation
+
+  createdAt DateTime @default(now())
+  tests     Test[]
+
+  @@map("machines")
+}
+
+/// Scénario de mesure (repos, web, vidéo, charge CPU…)
+model Scenario {
+  id          Int     @id @default(autoincrement())
+  code        String  @unique // ex : "C1-S1-REPOS"
+  name        String
+  description String?
+  durationS   Int     @default(600) // durée nominale (s)
+  workload    String // WorkloadType : IDLE | WEB | VIDEO | CPU
+  studyCase   String // StudyCase : HARDWARE | VIRTUALIZATION
+
+  tests Test[]
+
+  @@map("scenarios")
+}
+
+/// Exécution d'un scénario sur une machine = une campagne de mesure
+model Test {
+  id           Int       @id @default(autoincrement())
+  machineId    Int
+  scenarioId   Int
+  hypervisor   String    @default("NONE") // Hypervisor : NONE | VIRTUALBOX | VMWARE
+  vmCount      Int       @default(0)
+  powerBackend String    @default("MODEL") // PowerBackend utilisé
+  status       String    @default("RUNNING") // TestStatus
+  startedAt    DateTime  @default(now())
+  endedAt      DateTime?
+  notes        String?
+
+  machine      Machine       @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  scenario     Scenario      @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  measurements Measurement[]
+  result       Result?
+
+  @@index([machineId])
+  @@index([scenarioId])
+  @@map("tests")
+}
+
+/// Échantillon mesuré à l'instant t (1 ligne / seconde par défaut)
+model Measurement {
+  id        Int      @id @default(autoincrement())
+  testId    Int
+  timestamp DateTime @default(now())
+  cpuPct    Float
+  ramPct    Float
+  ramMo     Float
+  cpuTempC  Float?
+  powerW    Float
+  energyJ   Float // énergie cumulée (J) depuis le début du test
+
+  test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@index([testId])
+  @@map("measurements")
+}
+
+/// Agrégats statistiques calculés à la fin d'un test (1‑1 avec Test)
+model Result {
+  id           Int    @id @default(autoincrement())
+  testId       Int    @unique
+  samples      Int
+  powerMeanW   Float
+  powerMedianW Float
+  powerStdW    Float
+  powerVarW    Float
+  powerMinW    Float
+  powerMaxW    Float
+  cpuMeanPct   Float
+  ramMeanPct   Float
+  tempMeanC    Float?
+  energyWh     Float
+  corrPowerCpu Float // corrélation de Pearson puissance ↔ CPU%
+
+  test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@map("results")
+}
